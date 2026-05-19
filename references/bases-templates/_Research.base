@@ -1,0 +1,53 @@
+filters:
+  and:
+    - 'file.inFolder("Research")'
+    - 'file.ext == "md"'
+    - 'note.type == "research"'
+
+properties:
+  subtype:
+    displayName: Type
+  source:
+    displayName: Source
+
+views:
+  - type: table
+    name: "YouTube"
+    filters:
+      and:
+        - 'subtype == "youtube"'
+    order:
+      - file.basename
+      - note["date-watched"]
+      - source
+
+  - type: table
+    name: "Web"
+    filters:
+      and:
+        - 'subtype == "web"'
+    order:
+      - file.basename
+      - date
+      - source
+
+  - type: table
+    name: "Deep research"
+    filters:
+      and:
+        - 'subtype == "deep"'
+    order:
+      - file.basename
+      - date
+      - source
+
+  - type: table
+    name: "All research"
+    order:
+      - file.basename
+      - subtype
+      - source
+      - file.mtime
+    groupBy:
+      property: subtype
+      direction: ASC

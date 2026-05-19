@@ -1,0 +1,35 @@
+filters:
+  and:
+    - file.inFolder("Dev Logs")
+    - file.ext == "md"
+    - note.type == "dev-log"
+properties:
+  project:
+    displayName: Project
+  summary:
+    displayName: Summary
+views:
+  - type: table
+    name: Recent (last 30)
+    order:
+      - date
+      - file.basename
+      - project
+      - summary
+    limit: 30
+  - type: table
+    name: By project
+    groupBy:
+      property: project
+      direction: ASC
+    order:
+      - project
+      - date
+      - file.basename
+      - summary
+  - type: table
+    name: All dev logs
+    order:
+      - date
+      - file.basename
+      - project

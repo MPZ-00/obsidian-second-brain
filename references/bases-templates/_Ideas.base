@@ -1,0 +1,36 @@
+filters:
+  and:
+    - file.inFolder("Ideas")
+    - file.ext == "md"
+    - note.type == "idea"
+formulas:
+  status_icon: if(status == "exploring", "🔍", if(status == "active", "🚀", if(status == "archived", "📦", if(status == "graduated", "🎓", "❔"))))
+  age_days: if(created, (today() - date(created)).days, "")
+properties:
+  formula.age_days:
+    displayName: Age (days)
+  confidence:
+    displayName: Confidence
+views:
+  - type: table
+    name: Exploring
+    filters:
+      and:
+        - status == "exploring"
+    order:
+      - formula.status_icon
+      - file.basename
+      - confidence
+      - created
+      - formula.age_days
+  - type: table
+    name: All ideas
+    groupBy:
+      property: status
+      direction: ASC
+    order:
+      - formula.status_icon
+      - file.basename
+      - status
+      - confidence
+      - created
