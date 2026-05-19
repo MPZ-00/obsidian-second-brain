@@ -1,0 +1,60 @@
+filters:
+  and:
+    - 'file.inFolder("Tasks")'
+    - 'file.ext == "md"'
+    - 'note.type == "task"'
+
+formulas:
+  days_until_due: 'if(due, (date(due) - today()).days, "")'
+  is_overdue: 'if(due, date(due) < today() && status != "done", false)'
+  priority_icon: 'if(priority == "high", "🔴", if(priority == "medium", "🟡", if(priority == "low", "🟢", "⚪")))'
+  status_icon: 'if(status == "done", "✅", if(status == "in-progress", "🔄", if(status == "waiting", "⏳", "📋")))'
+
+properties:
+  formula.priority_icon:
+    displayName: ""
+  formula.status_icon:
+    displayName: ""
+  formula.days_until_due:
+    displayName: "Days until due"
+  formula.is_overdue:
+    displayName: "Overdue"
+
+views:
+  - type: table
+    name: "Open"
+    filters:
+      and:
+        - 'status != "done"'
+    order:
+      - formula.priority_icon
+      - formula.status_icon
+      - file.basename
+      - due
+      - formula.days_until_due
+      - project
+    groupBy:
+      property: priority
+      direction: DESC
+
+  - type: table
+    name: "Overdue"
+    filters:
+      and:
+        - 'formula.is_overdue == true'
+    order:
+      - formula.priority_icon
+      - file.basename
+      - due
+      - formula.days_until_due
+      - project
+
+  - type: table
+    name: "Done"
+    filters:
+      and:
+        - 'status == "done"'
+    order:
+      - file.basename
+      - completed_date
+      - project

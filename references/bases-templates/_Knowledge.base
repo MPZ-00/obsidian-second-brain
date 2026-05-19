@@ -1,0 +1,36 @@
+filters:
+  and:
+    - file.inFolder("Knowledge")
+    - file.ext == "md"
+views:
+  - type: table
+    name: ADRs
+    filters:
+      and:
+        - file.hasTag("decision-record")
+    order:
+      - file.basename
+      - status
+      - date
+  - type: table
+    name: Patterns
+    filters:
+      and:
+        - file.hasTag("pattern")
+    order:
+      - file.basename
+      - date
+  - type: table
+    name: Learnings
+    filters:
+      and:
+        - file.hasTag("learning")
+    order:
+      - file.basename
+      - date
+  - type: table
+    name: All knowledge
+    order:
+      - file.basename
+      - file.tags
+      - file.mtime

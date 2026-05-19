@@ -16,6 +16,9 @@ description: >
   to the vault automatically following the AI-first vault rule. Use proactively whenever
   the conversation produces information worth preserving (decisions, people met, projects
   started, tasks completed, lessons learned, research findings).
+  Also includes /projects for a git-aware multi-project dashboard, /obsidian-setup for
+  per-user command opt-out, folder Bases for live vault views, and per-day operation
+  logs under Logs/.
 ---
 
 # Obsidian Second Brain
@@ -30,6 +33,10 @@ description: >
 ### 0. Choose vault access method (in order of preference)
 
 Try these methods in order. Use the first one available:
+
+**Method 0 — SessionStart hook (if configured):**
+If `hooks/load_vault_context.py` is wired as a SessionStart hook in `~/.claude/settings.json`, `_CLAUDE.md` is injected into context automatically at session start. Skip step 1 below.
+To wire it: `bash scripts/setup.sh "/path/to/vault"` or run `/obsidian-setup`.
 
 **Method A — MCP server (`mcp-obsidian`):**
 If the MCP tools (`get_file_contents`, `list_files_in_vault`, `search`, `append_content`, `write_file`) are available, use them.
@@ -51,6 +58,8 @@ get_file_contents("_CLAUDE.md")
 
 If it exists: follow its rules exactly — they override the defaults in this skill. Where `_CLAUDE.md` is silent, fall back to the defaults below.
 If it doesn't exist: use the defaults in this skill, then offer to create one.
+
+If the SessionStart hook is active, `_CLAUDE.md` is already in context — skip this step.
 
 ### 2. First time with a new user → run discovery
 
@@ -179,6 +188,22 @@ Two structural files that keep the vault navigable and auditable:
 
 - **`log.md`** — An append-only chronological log of every vault operation. Every save, ingest, health check, and structural change gets a timestamped entry. Never delete or rewrite entries — only append. Format: `## [YYYY-MM-DD] action | Description`
 
+### Per-day operation logs (modernized vaults)
+Vaults initialized with `/obsidian-init` (v0.9+) use a split log structure instead of a monolithic `log.md`:
+
+- **`Logs/YYYY-MM-DD.md`** — one file per day, append-only. Format: `**HH:MM** — action | description`
+- **`log.md` at vault root** — pointer file only. Never write entries here; it explains the per-day structure and ships the entry template.
+
+To migrate an existing monolithic `log.md`: run `python scripts/migrate_log.py --vault <path>`.
+To refresh the stats block in `index.md` after bulk writes: run `python scripts/vault_stats.py --vault <path>`.
+
+When writing operation log entries, check whether the vault uses the old (`log.md`) or new (`Logs/YYYY-MM-DD.md`) structure and write to the correct location.
+
+### Folder Bases (modernized vaults)
+Vaults initialized with `/obsidian-init` (v0.9+) include 8 `.base` files (one per major folder) provisioned from `references/bases-templates/`. These give live filtered views over frontmatter — no hand-maintained index needed.
+
+`index.md` in these vaults is a thin navigation hub that embeds the Bases rather than listing notes manually. Do not hand-edit the `<!-- BEGIN STATS -->` / `<!-- END STATS -->` markers in `index.md` — they are managed by `vault_stats.py`.
+
 ### The vault is a living system
 The vault is not a filing cabinet. It is a living knowledge base that rewrites itself with every input. When new information enters:
 - Existing pages get REWRITTEN with new context, not just appended to
@@ -275,6 +300,23 @@ To generate a `_CLAUDE.md` for an existing vault, run vault discovery then use t
 
 To install it: write the file to the vault root. Every Claude session that starts in that vault should read it first.
 
+**`projects:` block** (optional) — lists all tracked projects with their repo paths and vault note paths. Required for `/projects` to work:
+
+```yaml
+projects:
+  - name: Project Name
+    repo: ~/Projects/my-repo
+    vault_note: Projects/Project Name.md
+```
+
+**`disabled_commands:` block** (optional) — lists commands turned off via `/obsidian-setup`. Before executing any command, check if its name appears here. If it does, respond: "This command is disabled. Run `/obsidian-setup` to re-enable it." and stop.
+
+```yaml
+disabled_commands:
+  - obsidian-challenge
+  - obsidian-emerge
+```
+
 ---
 
 ## Common Operations
@@ -320,6 +362,28 @@ Proactively suggest running this when the user says the vault feels messy, notes
 These slash commands can be used in any Claude surface. Each one is smart — it reads context, searches before writing, and propagates everywhere changes belong.
 
 **Name matching:** If a name argument has a typo or is approximate, search the vault for the closest match, show what was found, and confirm with the user before proceeding. Never silently create a note with a misspelled name.
+
+**Disabled commands:** Before executing any command, check the `disabled_commands:` block in `_CLAUDE.md`. If the command is listed there, decline and suggest `/obsidian-setup` to re-enable it.
+
+---
+
+### `/projects [optional: project name]`
+
+**Git-aware session-start dashboard across all tracked projects.**
+
+Run this at the start of a session to see the current state of all projects at a glance.
+
+See `commands/projects.md` for full operating instructions.
+
+---
+
+### `/obsidian-setup`
+
+**Interactive per-user configuration — enable/disable commands, wire hooks.**
+
+Run this once when setting up the skill in a new vault, or any time you want to change which commands are active.
+
+See `commands/obsidian-setup.md` for full operating instructions.
 
 ---
 

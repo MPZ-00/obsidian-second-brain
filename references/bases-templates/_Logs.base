@@ -1,0 +1,27 @@
+filters:
+  and:
+    - 'file.inFolder("Logs")'
+    - 'file.ext == "md"'
+    - 'note.type == "log"'
+
+formulas:
+  age_days: 'if(date, (today() - date(date)).days, "")'
+
+properties:
+  formula.age_days:
+    displayName: "Age (days)"
+
+views:
+  - type: table
+    name: "Recent (last 30 days)"
+    limit: 30
+    order:
+      - date
+      - file.basename
+      - formula.age_days
+
+  - type: table
+    name: "All logs"
+    order:
+      - date
+      - file.basename

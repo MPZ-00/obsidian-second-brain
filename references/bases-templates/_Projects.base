@@ -1,0 +1,62 @@
+filters:
+  and:
+    - file.inFolder("Projects")
+    - file.ext == "md"
+    - note.type == "project"
+formulas:
+  status_icon: if(status == "active", "🟢", if(status == "planning", "🟡", if(status == "on-hold", "⏸️", if(status == "completed", "✅", if(status == "archived", "📦", "❔")))))
+  days_since_update: if(updated, (today() - date(updated)).days, "")
+properties:
+  formula.days_since_update:
+    displayName: Days since update
+  status:
+    displayName: Status
+  repo:
+    displayName: Repo
+views:
+  - type: table
+    name: Active
+    filters:
+      and:
+        - status == "active"
+    groupBy:
+      property: status
+      direction: ASC
+    order:
+      - formula.status_icon
+      - file.basename
+      - formula.days_since_update
+      - updated
+      - repo
+  - type: table
+    name: Planning queue
+    filters:
+      and:
+        - status == "planning"
+    order:
+      - file.basename
+      - created
+      - repo
+  - type: table
+    name: On hold / Archived
+    filters:
+      or:
+        - status == "on-hold"
+        - status == "archived"
+        - status == "completed"
+    order:
+      - formula.status_icon
+      - file.basename
+      - status
+      - updated
+  - type: table
+    name: All projects
+    groupBy:
+      property: status
+      direction: ASC
+    order:
+      - formula.status_icon
+      - file.basename
+      - status
+      - updated
+      - repo

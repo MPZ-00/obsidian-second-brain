@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **`/projects` command:** git-aware session-start dashboard across all tracked projects. Spawns parallel subagents per project to read the vault note, run `git log --oneline -15` + `git status --short`, and check for `NOTES.md`/`TODO.md` in the repo root. Synthesizes each project into a status block (active/stalled/idle/blocked), infers last session, next action, and blockers, then rewrites `Projects/Dashboard.md` ordered by status. Requires a `projects:` block in `_CLAUDE.md` listing each project's name, repo path, and vault note path.
+- **`/obsidian-setup` command:** interactive per-user configuration. Presents all 35 commands grouped by category with current enabled/disabled status, writes a `disabled_commands:` block to `_CLAUDE.md`, and optionally wires the SessionStart hook via `scripts/setup.sh`. Replaces the need to manually edit `_CLAUDE.md` to trim down the command set.
+- **`disabled_commands:` support in `_CLAUDE.md`:** any command listed here is refused at runtime with a suggestion to re-enable via `/obsidian-setup`. No build step — purely runtime.
+- **SessionStart hook (`hooks/load_vault_context.py`):** injects `_CLAUDE.md` into context once per session when the session starts inside the vault. Eliminates the per-command re-read of `_CLAUDE.md` that burned tokens on every invocation. Wired automatically by `scripts/setup.sh`.
+- **Folder Bases (`references/bases-templates/`):** 8 standard `.base` files (`_Projects.base`, `_People.base`, `_Ideas.base`, `_Knowledge.base`, `_Research.base`, `_Dev Logs.base`, `_Tasks.base`, `_Logs.base`) provisioned by `/obsidian-init`. Live filtered views over frontmatter — no hand-maintained index needed.
+- **Per-day operation logs:** `/obsidian-init` now creates a `Logs/` folder with per-day files (`Logs/YYYY-MM-DD.md`) instead of a monolithic `log.md`. Root `log.md` becomes a pointer file only. Cheaper to read, faster to query.
+- **`scripts/vault_stats.py`:** computes vault stats (notes by type, project/task counts by status, people by strength) and rewrites the `<!-- BEGIN STATS -->`/`<!-- END STATS -->` markers in `index.md`. Idempotent and re-runnable.
+- **`scripts/migrate_log.py`:** splits an existing monolithic `log.md` (with `## YYYY-MM-DD` section headers) into per-day files under `Logs/`. Idempotent — skips days that already exist. Replaces root `log.md` with a pointer file after migration.
+- **`scripts/_strip_command_boilerplate.py`:** one-shot utility that removes the "Read `_CLAUDE.md` first" step and AI-first footer from command files — both are now handled centrally (SessionStart hook and SKILL.md respectively).
+- **`commands/obsidian-init.md` updated:** now provisions folder Bases, creates per-day `Logs/` structure, and runs `vault_stats.py` to populate the stats block in `index.md`. `index.md` is now a thin Bases-based nav hub rather than a hand-maintained note catalog.
+- **`scripts/setup.sh` updated:** wires the new SessionStart hook (`hooks/load_vault_context.py`) in addition to the existing PostCompact background agent.
+
 ## [0.8.0] — 2026-05-15
 
 ### Added

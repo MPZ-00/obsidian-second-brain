@@ -1,0 +1,42 @@
+filters:
+  and:
+    - file.inFolder("People")
+    - file.ext == "md"
+    - note.type == "person"
+formulas:
+  days_since_interaction: if(note["last-interaction"], (today() - date(note["last-interaction"])).days, "")
+  strength_icon: if(strength == "high", "💪", if(strength == "medium", "👋", if(strength == "low", "👂", "❔")))
+properties:
+  formula.days_since_interaction:
+    displayName: Days since
+  role:
+    displayName: Role
+  company:
+    displayName: Company
+views:
+  - type: table
+    name: By recency
+    order:
+      - formula.strength_icon
+      - file.basename
+      - role
+      - company
+      - note["last-interaction"]
+      - formula.days_since_interaction
+  - type: table
+    name: Strong ties
+    filters:
+      and:
+        - strength == "high"
+    order:
+      - file.basename
+      - role
+      - company
+      - note["last-interaction"]
+  - type: cards
+    name: Gallery
+    order:
+      - file.basename
+      - role
+      - company
+      - formula.strength_icon
