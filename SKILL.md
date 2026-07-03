@@ -28,6 +28,19 @@ description: >
 
 ## Quick Start
 
+### Determine the vault root (do this before anything else)
+
+Try these in order. Stop at the first one that resolves a path:
+
+1. **User stated it this session** - if the user named a vault path in conversation ("use ~/path-to/ai-brain", "switch to my work vault at ..."), that wins outright and overrides everything below, including the env var and any path already in context from the hook. Re-check this first on every command for the rest of the session, since the user may be working across multiple vaults.
+2. **Already in context** - if the SessionStart hook already injected `_CLAUDE.md` and a `Vault root:` path this session (and the user hasn't overridden it per #1), use that. Don't re-derive it.
+3. **Current working directory** - if `cwd` itself contains `_CLAUDE.md` or a `.obsidian/` folder, cwd is the vault root. **Exception for capture commands**: if `OBSIDIAN_VAULT_PATH` is set and points somewhere else, cwd is a *secondary* vault (a game catalog, a campaign wiki, ...) - session-knowledge commands (`/obsidian-save`, `/obsidian-log`, `/obsidian-capture`, `/obsidian-decide`, `/obsidian-person`, `/obsidian-project`) still target the primary vault from the env var. Commands that operate on vault *content* (`/obsidian-find`, `/obsidian-health`, structural edits, .base files) target cwd. When in doubt say which vault you're writing to before writing.
+4. **Env var, read directly** - run `echo $OBSIDIAN_VAULT_PATH` (bash) or `echo $env:OBSIDIAN_VAULT_PATH` (PowerShell). The SessionStart hook only fires when cwd matched the vault at session start - if you `cd`'d into the vault mid-session, or the hook isn't registered, the env var is still set and this recovers it. This is just the _default_ vault, not necessarily the one the user wants right now.
+5. **Settings file** - read `OBSIDIAN_VAULT_PATH` out of `~/.claude/settings.json` (or the project-local `.claude/settings.json`, which takes precedence) under the `env` key.
+
+6. **Ask the user** - only after 1-5 fail. Don't guess a path or silently scan the filesystem for vaults.
+
+Once resolved, treat it as known for the rest of the session unless the user names a different vault - don't re-derive it from the env var on every command if they've already told you which one to use.
 ### 0. Choose vault access method (in order of preference)
 
 Try these methods in order. Use the first one available:
