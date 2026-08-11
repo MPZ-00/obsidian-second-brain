@@ -71,14 +71,9 @@ fi
 # bundled scripts. The plugin install wires this up automatically via its manifest;
 # the skill install needs it in settings.json. Idempotent, safe to re-run.
 echo "Registering session context hook..."
-if command -v python3 >/dev/null 2>&1; then
-  python3 "$SKILL_DIR/scripts/setup_settings_hook.py"
-elif command -v python >/dev/null 2>&1; then
-  python "$SKILL_DIR/scripts/setup_settings_hook.py"
-else
-  echo "  python not found - add this SessionStart hook to $CLAUDE_DIR/settings.json manually:"
-  echo "    python3 \"$SKILLS_DIR/obsidian-second-brain/hooks/load_vault_context.py\""
-fi
+"$SKILL_DIR/hooks/run_python.sh" "$SKILL_DIR/scripts/setup_settings_hook.py" || \
+  echo "  add this SessionStart hook to $CLAUDE_DIR/settings.json manually:" \
+       "\"$SKILLS_DIR/obsidian-second-brain/hooks/run_python.sh\" \"$SKILLS_DIR/obsidian-second-brain/hooks/load_vault_context.py\""
 
 # ── Research toolkit setup (optional) ──────────────────────────────
 echo ""

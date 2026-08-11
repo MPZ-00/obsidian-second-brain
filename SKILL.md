@@ -41,6 +41,7 @@ Try these in order. Stop at the first one that resolves a path:
 6. **Ask the user** - only after 1-5 fail. Don't guess a path or silently scan the filesystem for vaults.
 
 Once resolved, treat it as known for the rest of the session unless the user names a different vault - don't re-derive it from the env var on every command if they've already told you which one to use.
+
 ### 0. Choose vault access method (in order of preference)
 
 Try these methods in order. Use the first one available:

@@ -145,7 +145,7 @@ fi
 
 # ── add SessionStart hook ────────────────────────────────────────────────────
 
-SESSION_HOOK_CMD="python3 $SESSION_HOOK"
+SESSION_HOOK_CMD="\"$SKILL_DIR/hooks/run_python.sh\" \"$SESSION_HOOK\""
 
 EXISTING_SESSION=$(jq -r '
   .hooks.SessionStart // [] |
