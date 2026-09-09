@@ -914,7 +914,11 @@ def save_note(
             return {"error": "path is in a protected directory"}
     else:
         inbox = vault / _NOTES_DIR
-        target = inbox / f"{date} - {_slug(title)}.md"
+        slug = _slug(title)
+        # A title an agent already dated itself (e.g. "2026-09-09-my-note")
+        # would otherwise get the date prepended a second time.
+        filename = slug if _DATE_PREFIX_RE.match(slug) else f"{date} - {slug}"
+        target = inbox / f"{filename}.md"
 
     tag_block = "\n".join(f"  - {t}" for t in tags)
     try:
@@ -1428,6 +1432,9 @@ def _read_safe(path: Path, *, limit: int = 4_000_000) -> Optional[str]:
         return path.read_text(encoding="utf-8-sig", errors="replace")[:limit]
     except OSError:
         return None
+
+
+_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\b")
 
 
 def _slug(text: str) -> str:

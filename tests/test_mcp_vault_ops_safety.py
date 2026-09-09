@@ -56,6 +56,16 @@ def test_save_note_refuses_a_same_day_title_collision(vault):
     assert "SECOND CONTENT" not in written
 
 
+def test_save_note_does_not_double_a_date_already_in_the_title(vault):
+    v, ops = vault
+    today = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
+    title = f"{today}-bitburner-personal-lore-scraper-and-obsidian-archive"
+    result = ops.save_note(title, "CONTENT")
+    assert "saved" in result, result
+    filename = result["saved"].split("/")[-1]
+    assert filename.count(today) == 1, f"date appears more than once in filename: {filename}"
+
+
 def test_update_note_refuses_capitalised_templates_dir(vault):
     _, ops = vault
     result = ops.update_note("Templates/Daily Note.md", append="INJECTED")
