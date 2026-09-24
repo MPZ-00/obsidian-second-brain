@@ -243,8 +243,15 @@ _FUSE_DEPTH = 25  # how many from each ranking feed the fusion
 _RRF_SEMANTIC_WEIGHT = float(os.environ.get("OBSIDIAN_RRF_SEMANTIC_WEIGHT") or "20.0")
 # Lexical rank carries signal only near the top: on paraphrase queries the
 # tail of the lexical ranking is term-frequency noise, and letting 25 noisy
-# entries vote demoted semantic answers. Lexical votes are capped to its
-# strongest few; semantic keeps the full fusion depth.
+# entries vote demoted semantic answers.
+#
+# The default does NOT cap it (#262). This is the lever for that failure, and it
+# ships at _FUSE_DEPTH, so `min(_FUSE_DEPTH, _FUSE_LEX_DEPTH)` in _semantic_fuse
+# is the full depth until someone sets the variable - the sweep that chose
+# _RRF_SEMANTIC_WEIGHT never picked a value here. Lowering it (5-10) is the
+# documented way out when a lexical tail displaces an exact match; it is not the
+# default because no measured sweep has backed one, and the weight already
+# converges the fusion to pure-semantic quality on the case sets that were run.
 _FUSE_LEX_DEPTH = int(os.environ.get("OBSIDIAN_RRF_LEX_DEPTH") or "25")
 # The semantic index is built on demand and never invalidates itself, so a note
 # written after the last build is invisible to the semantic arm. On English
@@ -286,29 +293,14 @@ _VALIDATION_EXEMPT_ROOT_FILES = {
 }
 
 
-# Documented config home (architecture.md, .env.example, CONTRIBUTING.md). The
-# research toolkit loads it via python-dotenv, but this module is pure stdlib and
-# the MCP server runs under `uv run --no-project --with 'mcp<2'` (no python-dotenv installed), so
-# we parse the one key we need by hand. Override the path in tests via
-# OBSIDIAN_ENV_FILE. (Fixes #160 - same root cause as #124, different code path.)
-_ENV_FILE = Path.home() / ".config" / "obsidian-second-brain" / ".env"
-
-
-def _env_from_file(name: str) -> str:
-    """Read a single `KEY=value` from the config .env. Environment always wins;
-    this is only consulted as a fallback. A missing or malformed file yields ""."""
-    path = Path(os.environ.get("OBSIDIAN_ENV_FILE") or _ENV_FILE).expanduser()
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, val = line.split("=", 1)
-            if key.strip() == name:
-                return val.strip().strip('"').strip("'")
-    except OSError:
-        pass
-    return ""
+# Where the config lives, and what it says, is scripts/osb_env.py's question.
+# This module used to answer it itself (#160, same root cause as #124) with a
+# second hand-rolled parser, which is how the toolkit ended up with six of them.
+# osb_env is deliberately stdlib-only for exactly this caller: the MCP server
+# runs under `uv run --no-project --with 'mcp<2'`, with no python-dotenv
+# installed, so it cannot use the research toolkit's loader.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+import osb_env  # noqa: E402  (depends on the sys.path insert above)
 
 
 def resolve_vault() -> Path:
@@ -318,10 +310,10 @@ def resolve_vault() -> Path:
     ~/.config/obsidian-second-brain/.env - the location architecture.md documents.
     Before #160 only the environment was checked, so plugin-marketplace installs
     that configured the vault in .env got a non-functional MCP server."""
-    raw = os.environ.get(_VAULT_ENV, "").strip() or _env_from_file(_VAULT_ENV)
+    raw = osb_env.env_value(_VAULT_ENV)
     if not raw:
         raise RuntimeError(
-            f"{_VAULT_ENV} is not set (checked the environment and {_ENV_FILE})"
+            f"{_VAULT_ENV} is not set (checked the environment and {osb_env.env_file()})"
         )
     vault = Path(raw).expanduser().resolve()
     if not vault.is_dir():
@@ -1010,6 +1002,8 @@ def update_note(
             new_body = new_body.rstrip() + f"\n\n{section}\n"
 
     out = "---\n" + "\n".join(fm_lines).strip("\n") + "\n---\n\n" + new_body.lstrip("\n")
+    if not _unchanged_since(target, text):
+        return {"error": f"{rel} {_NOTE_CHANGED_HINT}"}
     _write_atomic(target, out)
     out: Dict[str, Any] = {"updated": rel, "set": sorted(fields.keys()), "appended": bool(append)}
     out.update(_bookkeep(vault, "update", rel, f"[[{rel[:-3]}]] " + ("appended" if append else "fields set: " + ", ".join(sorted(fields.keys())))))
@@ -1048,6 +1042,8 @@ def replace_text(rel: str, old_text: str, new_text: str) -> Dict[str, Any]:
     count = text.count(old_text)
     if count != 1:
         return {"error": f"old_text must match exactly once; found {count} matches"}
+    if not _unchanged_since(target, text):
+        return {"error": f"{rel} {_NOTE_CHANGED_HINT}"}
     _write_atomic(target, text.replace(old_text, new_text, 1))
     result: Dict[str, Any] = {"updated": rel, "replacements": 1}
     result.update(_bookkeep(vault, "edit", rel, f"[[{rel[:-3]}]] text replaced"))
@@ -1406,6 +1402,33 @@ def _write_atomic(path: Path, text: str) -> None:
         except OSError:
             pass
         raise
+
+
+# Mirrors scripts/note_io.NoteChangedError and write_exact_if_unchanged (#217).
+# Kept as a copy for the same reason as the skip set above: this module ships
+# standalone in the MCP server and must not import from scripts/.
+# tests/test_concurrent_writes.py pins the two together so they cannot drift.
+_NOTE_CHANGED_HINT = (
+    "changed on disk since this tool read it - refusing to overwrite. Another "
+    "writer (a scheduled agent, a second session, or a sync client) edited it; "
+    "read the note again and redo the change."
+)
+
+
+def _unchanged_since(path: Path, expected: str) -> bool:
+    """Does the note still hold the text this call read?
+
+    The window inside one tool call is short, but it is enough: two calls that
+    overlap both read the old note, both build a new one from it, and both
+    writes succeed - the second silently discards the first. Whichever call
+    writes second now sees the other's bytes on disk and refuses, so the loss
+    is reported to the caller that can still redo it rather than vanishing.
+
+    Compared through _read_safe so both reads normalise identically (utf-8-sig,
+    same truncation limit). This covers the note itself; the bookkeeping
+    appends to index.md and log.md carry the same race and are not guarded here.
+    """
+    return _read_safe(path) == expected
 
 
 def _resolve_in_vault(vault: Path, rel: str) -> Optional[Path]:
